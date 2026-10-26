@@ -51,7 +51,7 @@ flowchart LR
 | Cache | Redis | VM | Redis integration |
 | Platform | k3s | EC2 | Kubernetes integration (nri-bundle) with metadata injection |
 | Cloud | EC2, EBS, S3, Lambda | AWS | AWS integration (API polling) |
-| Outside-in | Ping and scripted browser | New Relic | Synthetics |
+| Outside-in | Ping monitor (scripted monitors need a paid plan) | New Relic | Synthetics |
 | Delivery | GitHub Actions | GitHub | Change tracking markers |
 
 ## The four demo incidents
