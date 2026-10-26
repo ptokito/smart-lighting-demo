@@ -1,0 +1,8 @@
+# Python packages for device-gateway (runs on the host VM in a virtualenv).
+# The New Relic agent is unpinned on purpose so every rebuild gets the current
+# release; last time an old pinned agent was dozens of versions behind.
+fastapi
+uvicorn
+psycopg2-binary
+redis
+newrelic

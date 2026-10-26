@@ -1,0 +1,29 @@
+# =============================================================================
+# Log forwarding by the infrastructure agent on the host VM.
+#
+# Only logs that no APM agent already sends: NGINX and PostgreSQL. The
+# device-gateway's own logs are forwarded by its Python APM agent (with trace
+# IDs attached), so they are deliberately NOT listed here. Forwarding them
+# twice was a problem in the previous build.
+#
+# The same files also go to CloudWatch Logs (for the S3 archive) through the
+# CloudWatch agent; see host/cloudwatch/agent-config.json.
+# =============================================================================
+logs:
+  - name: nginx-access
+    file: /var/log/nginx/access.log
+    attributes:
+      logtype: nginx
+      service: nginx
+  - name: nginx-error
+    file: /var/log/nginx/error.log
+    attributes:
+      logtype: nginx-error
+      service: nginx
+  # PostgreSQL writes any statement slower than 500 ms here
+  # (log_min_duration_statement, set by host-bootstrap.sh).
+  - name: postgresql
+    file: /var/log/postgresql/postgresql-16-main.log
+    attributes:
+      logtype: postgresql
+      service: postgresql

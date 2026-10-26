@@ -1,0 +1,23 @@
+# Terraform: provider downloads, state (contains resource IDs and generated
+# passwords), your variable values, saved plans and build output.
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+*.plan
+infra/aws/.build/
+
+# Python and Node build leftovers
+__pycache__/
+*.pyc
+node_modules/
+.venv/
+
+# Editor and OS clutter
+.DS_Store
+.vscode/
+
+# Local agent log files
+newrelic_agent.log

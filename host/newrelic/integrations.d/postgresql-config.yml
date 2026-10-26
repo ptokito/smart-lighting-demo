@@ -1,0 +1,24 @@
+# New Relic on-host integration for PostgreSQL.
+# Template: ${NR_DB_PASSWORD} is filled in by host-bootstrap.sh.
+# Connects as the read-only "newrelic" user (granted pg_monitor) and collects
+# database, table and index metrics: connections, transactions, cache hit
+# ratio, sequential vs index scans per table (useful for the slow-query demo:
+# sequential scans on "readings" jump when the index is dropped).
+integrations:
+  - name: nri-postgresql
+    env:
+      USERNAME: newrelic
+      PASSWORD: ${NR_DB_PASSWORD}
+      HOSTNAME: localhost
+      PORT: 5432
+      DATABASE: lighting
+      # Collect metrics for every database, schema, table and index.
+      COLLECTION_LIST: ALL
+      COLLECT_DB_LOCK_METRICS: false
+      ENABLE_SSL: false
+      TIMEOUT: 10
+    interval: 30s
+    labels:
+      env: demo
+      role: database
+    inventory_source: config/postgresql

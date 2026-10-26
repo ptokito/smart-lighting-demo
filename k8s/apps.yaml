@@ -1,0 +1,223 @@
+# =============================================================================
+# Kubernetes manifests for the Larkspur Ridge Smart Lighting services on k3s.
+#
+# This file is a template. scripts/deploy-k3s.sh fills in two values with
+# envsubst before applying it:
+#   ${IMAGE_TAG}  the Git commit the images were built from (so every deploy
+#                 changes the pod spec and Kubernetes rolls the pods)
+#   ${HOST_IP}    private IP of the host VM (PostgreSQL, Redis, device-gateway)
+#
+# Secrets (license key and passwords) are NOT in this file. The deploy script
+# creates the "lighting-secrets" Secret from AWS Systems Manager Parameter Store.
+#
+# Images are built locally on the node and imported into k3s, so
+# imagePullPolicy is Never (there is no registry to pull from).
+# =============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: lighting
+  labels:
+    app.kubernetes.io/part-of: smart-lighting
+---
+# Non-secret settings shared by every service.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lighting-config
+  namespace: lighting
+data:
+  DB_HOST: "${HOST_IP}"
+  REDIS_HOST: "${HOST_IP}"
+  GATEWAY_URL: "http://${HOST_IP}:8081"
+  PUBLIC_URL: "http://${HOST_IP}"
+  DISPATCH_URL: "http://crew-dispatch:8082"
+  LIGHTING_API_URL: "http://lighting-api:8080"
+  # Tags every New Relic APM entity carries, used to filter and to own alerts.
+  NEW_RELIC_LABELS: "env:demo;program:smart-lighting;team:city-sre"
+  NEW_RELIC_DISTRIBUTED_TRACING_ENABLED: "true"
+  NEW_RELIC_APPLICATION_LOGGING_ENABLED: "true"
+  NEW_RELIC_APPLICATION_LOGGING_FORWARDING_ENABLED: "true"
+---
+# ----------------------------------------------------------------------------
+# portal (Node.js + New Relic agent + Browser injection)
+# ----------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portal
+  namespace: lighting
+  labels: { app: portal, app.kubernetes.io/part-of: smart-lighting }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: portal } }
+  template:
+    metadata:
+      labels: { app: portal, app.kubernetes.io/part-of: smart-lighting }
+    spec:
+      containers:
+        - name: portal
+          image: smart-lighting/portal:${IMAGE_TAG}
+          imagePullPolicy: Never
+          ports: [{ containerPort: 3000 }]
+          envFrom:
+            - configMapRef: { name: lighting-config }
+          env:
+            - { name: NEW_RELIC_APP_NAME, value: lighting-portal }
+            - { name: NEW_RELIC_NO_CONFIG_FILE, value: "true" }
+            - name: NEW_RELIC_LICENSE_KEY
+              valueFrom: { secretKeyRef: { name: lighting-secrets, key: NEW_RELIC_LICENSE_KEY } }
+          readinessProbe:
+            httpGet: { path: /healthz, port: 3000 }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 384Mi }
+---
+# NodePort so NGINX on the host VM can reach the portal at <k3s IP>:30080.
+apiVersion: v1
+kind: Service
+metadata:
+  name: portal
+  namespace: lighting
+spec:
+  type: NodePort
+  selector: { app: portal }
+  ports: [{ port: 3000, targetPort: 3000, nodePort: 30080 }]
+---
+# ----------------------------------------------------------------------------
+# lighting-api (Python + New Relic agent), 2 replicas
+# ----------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lighting-api
+  namespace: lighting
+  labels: { app: lighting-api, app.kubernetes.io/part-of: smart-lighting }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: lighting-api } }
+  template:
+    metadata:
+      labels: { app: lighting-api, app.kubernetes.io/part-of: smart-lighting }
+    spec:
+      containers:
+        - name: lighting-api
+          image: smart-lighting/lighting-api:${IMAGE_TAG}
+          imagePullPolicy: Never
+          ports: [{ containerPort: 8080 }]
+          envFrom:
+            - configMapRef: { name: lighting-config }
+          env:
+            - { name: NEW_RELIC_APP_NAME, value: lighting-api }
+            - name: NEW_RELIC_LICENSE_KEY
+              valueFrom: { secretKeyRef: { name: lighting-secrets, key: NEW_RELIC_LICENSE_KEY } }
+            - name: DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: lighting-secrets, key: DB_PASSWORD } }
+            - name: REDIS_PASSWORD
+              valueFrom: { secretKeyRef: { name: lighting-secrets, key: REDIS_PASSWORD } }
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 192Mi }
+            limits: { memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lighting-api
+  namespace: lighting
+spec:
+  selector: { app: lighting-api }
+  ports: [{ port: 8080, targetPort: 8080 }]
+---
+# ----------------------------------------------------------------------------
+# crew-dispatch (Python + OpenTelemetry only, no New Relic agent)
+# All OTEL_* settings below configure opentelemetry-instrument.
+# ----------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crew-dispatch
+  namespace: lighting
+  labels: { app: crew-dispatch, app.kubernetes.io/part-of: smart-lighting }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: crew-dispatch } }
+  template:
+    metadata:
+      labels: { app: crew-dispatch, app.kubernetes.io/part-of: smart-lighting }
+    spec:
+      containers:
+        - name: crew-dispatch
+          image: smart-lighting/crew-dispatch:${IMAGE_TAG}
+          imagePullPolicy: Never
+          ports: [{ containerPort: 8082 }]
+          env:
+            - { name: DB_HOST, value: "${HOST_IP}" }
+            - { name: REDIS_HOST, value: "${HOST_IP}" }
+            - name: DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: lighting-secrets, key: DB_PASSWORD } }
+            - name: REDIS_PASSWORD
+              valueFrom: { secretKeyRef: { name: lighting-secrets, key: REDIS_PASSWORD } }
+            # Service name shown in New Relic (APM & Services, OpenTelemetry).
+            - { name: OTEL_SERVICE_NAME, value: lighting-crew-dispatch }
+            - { name: OTEL_RESOURCE_ATTRIBUTES, value: "service.version=${IMAGE_TAG},deployment.environment=demo,program=smart-lighting" }
+            # New Relic's US OTLP endpoint on port 443. Port 4318 was blocked
+            # in the previous build; 443 always works through firewalls.
+            - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "https://otlp.nr-data.net:443" }
+            - { name: OTEL_EXPORTER_OTLP_PROTOCOL, value: http/protobuf }
+            - name: NEW_RELIC_LICENSE_KEY
+              valueFrom: { secretKeyRef: { name: lighting-secrets, key: NEW_RELIC_LICENSE_KEY } }
+            # The license key goes in the api-key header. $(VAR) is Kubernetes'
+            # syntax for referencing another env var defined above.
+            - { name: OTEL_EXPORTER_OTLP_HEADERS, value: "api-key=$(NEW_RELIC_LICENSE_KEY)" }
+            - { name: OTEL_TRACES_EXPORTER, value: otlp }
+            - { name: OTEL_METRICS_EXPORTER, value: otlp }
+            - { name: OTEL_LOGS_EXPORTER, value: otlp }
+            # New Relic recommends delta temporality for counters.
+            - { name: OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE, value: delta }
+            - { name: OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED, value: "true" }
+            - { name: OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT, value: "4095" }
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8082 }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 384Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: crew-dispatch
+  namespace: lighting
+spec:
+  selector: { app: crew-dispatch }
+  ports: [{ port: 8082, targetPort: 8082 }]
+---
+# ----------------------------------------------------------------------------
+# simulator (no agent)
+# ----------------------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: simulator
+  namespace: lighting
+  labels: { app: simulator, app.kubernetes.io/part-of: smart-lighting }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: simulator } }
+  template:
+    metadata:
+      labels: { app: simulator, app.kubernetes.io/part-of: smart-lighting }
+    spec:
+      containers:
+        - name: simulator
+          image: smart-lighting/simulator:${IMAGE_TAG}
+          imagePullPolicy: Never
+          envFrom:
+            - configMapRef: { name: lighting-config }
+          resources:
+            requests: { cpu: 25m, memory: 64Mi }
+            limits: { memory: 192Mi }

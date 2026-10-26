@@ -1,0 +1,8 @@
+# Python packages for lighting-api. The New Relic agent is unpinned so each
+# image build picks up the current release.
+fastapi
+uvicorn
+psycopg2-binary
+redis
+requests
+newrelic

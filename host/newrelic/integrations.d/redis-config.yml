@@ -1,0 +1,16 @@
+# New Relic on-host integration for Redis.
+# Template: ${REDIS_PASSWORD} is filled in by host-bootstrap.sh.
+# Collects memory use, connected clients, commands per second, keyspace hits
+# and misses (the cache hit rate drops to zero during the "bad release" demo).
+integrations:
+  - name: nri-redis
+    env:
+      HOSTNAME: localhost
+      PORT: 6379
+      PASSWORD: ${REDIS_PASSWORD}
+      REMOTE_MONITORING: true
+    interval: 30s
+    labels:
+      env: demo
+      role: cache
+    inventory_source: config/redis

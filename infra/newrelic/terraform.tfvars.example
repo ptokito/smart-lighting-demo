@@ -1,0 +1,10 @@
+# Copy to terraform.tfvars (git-ignored). The New Relic USER key is not set
+# here; export it instead:
+#   export NEW_RELIC_API_KEY='NRAK-...'
+
+account_id  = 8656494
+alert_email = "you@example.com"
+aws_region  = "us-east-1"
+
+# From infra/aws:  terraform -chdir=../aws output -raw portal_url
+portal_url = "http://203.0.113.10"

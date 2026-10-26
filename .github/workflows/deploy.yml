@@ -1,0 +1,68 @@
+# =============================================================================
+# Deploy on every push to main, then record New Relic change markers.
+#
+# Flow:
+#   1. GitHub gives this run a short-lived OIDC token; AWS exchanges it for
+#      temporary credentials for the smart-lighting-github-deploy role (no AWS
+#      keys are stored in GitHub).
+#   2. AWS Systems Manager Run Command updates device-gateway on the host VM
+#      and rebuilds and rolls out the services on k3s at this exact commit.
+#   3. A change marker is recorded on each service in New Relic, carrying the
+#      release version, commit, author and message.
+#
+# Repository settings needed (Settings > Secrets and variables > Actions):
+#   Variables: AWS_REGION, AWS_DEPLOY_ROLE_ARN, HOST_INSTANCE_ID,
+#              K3S_INSTANCE_ID, NEW_RELIC_ACCOUNT_ID
+#   Secret:    NEW_RELIC_API_KEY (a New Relic USER key)
+# =============================================================================
+name: Deploy and record change markers
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "services/**"
+      - "k8s/**"
+      - "scripts/deploy-*.sh"
+  workflow_dispatch: {}
+
+# id-token: write is what allows the OIDC token request.
+permissions:
+  id-token: write
+  contents: read
+
+# Never run two deploys at once; a second push waits for the first.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      HOST_INSTANCE_ID: ${{ vars.HOST_INSTANCE_ID }}
+      K3S_INSTANCE_ID: ${{ vars.K3S_INSTANCE_ID }}
+    steps:
+      - name: Check out the commit
+        uses: actions/checkout@v4
+
+      - name: Read the release version
+        id: release
+        run: echo "version=$(jq -r .version services/lighting-api/release.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Get temporary AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Deploy to the host VM and k3s
+        run: bash scripts/ci-deploy.sh
+
+      - name: Record change markers in New Relic
+        env:
+          NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
+          NEW_RELIC_ACCOUNT_ID: ${{ vars.NEW_RELIC_ACCOUNT_ID }}
+        run: bash scripts/ci-change-marker.sh "${{ steps.release.outputs.version }}"

@@ -1,0 +1,28 @@
+# =============================================================================
+# systemd unit for device-gateway on the host VM.
+#
+# newrelic-admin run-program starts the New Relic Python agent and runs uvicorn
+# inside it (same pattern as the containers). Settings, including the license
+# key and passwords, come from /etc/smart-lighting/device-gateway.env, which
+# host-bootstrap.sh writes from Parameter Store with root-only permissions.
+#
+# Output is appended to /var/log/smart-lighting/device-gateway.log, which the
+# CloudWatch agent ships to CloudWatch Logs for the S3 archive.
+# =============================================================================
+[Unit]
+Description=Larkspur Ridge Smart Lighting device gateway
+After=network-online.target postgresql.service redis-server.service
+Wants=network-online.target
+
+[Service]
+User=lighting
+WorkingDirectory=/opt/smart-lighting/services/device-gateway
+EnvironmentFile=/etc/smart-lighting/device-gateway.env
+ExecStart=/opt/smart-lighting/venv/bin/newrelic-admin run-program /opt/smart-lighting/venv/bin/uvicorn app:app --host 0.0.0.0 --port 8081 --workers 1
+StandardOutput=append:/var/log/smart-lighting/device-gateway.log
+StandardError=append:/var/log/smart-lighting/device-gateway.log
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

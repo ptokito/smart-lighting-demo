@@ -1,0 +1,10 @@
+# Python packages for crew-dispatch. No New Relic agent here: this service is
+# instrumented with OpenTelemetry only. `opentelemetry-bootstrap -a install`
+# in the Dockerfile then adds the matching instrumentation packages for
+# FastAPI, psycopg2, Redis and logging.
+fastapi
+uvicorn
+psycopg2-binary
+redis
+opentelemetry-distro
+opentelemetry-exporter-otlp-proto-http

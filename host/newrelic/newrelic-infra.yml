@@ -1,0 +1,22 @@
+# =============================================================================
+# New Relic infrastructure agent configuration for the host VM.
+# Template: ${NEW_RELIC_LICENSE_KEY} is filled in by host-bootstrap.sh from
+# Parameter Store and the result is written to /etc/newrelic-infra.yml with
+# permissions 600 (readable by root only).
+#
+# The k3s node does NOT get this agent: the New Relic Kubernetes integration
+# runs its own copy of the infrastructure agent as a DaemonSet, and installing
+# both would double-count the node.
+# =============================================================================
+license_key: ${NEW_RELIC_LICENSE_KEY}
+
+# Friendly name in New Relic instead of the EC2 internal hostname.
+display_name: lighting-host
+
+# Attributes added to every host metric, event and log from this agent, so
+# dashboards and alerts can filter on them.
+custom_attributes:
+  env: demo
+  program: smart-lighting
+  role: host-vm
+  team: city-sre

@@ -1,0 +1,14 @@
+# Copy to terraform.tfvars (git-ignored) and adjust. The New Relic license key
+# is NOT set here; export it instead:
+#   export TF_VAR_newrelic_license_key='...40 characters, ends in NRAL...'
+
+aws_region        = "us-east-1"
+repo_url          = "https://github.com/ptokito/smart-lighting-demo.git"
+github_repository = "ptokito/smart-lighting-demo"
+
+# Set to false if `terraform plan` says the GitHub OIDC provider already exists
+# (an earlier lab may have created it).
+create_github_oidc_provider = true
+
+# Cheaper while building; set back to false before the presentation.
+use_spot = false
