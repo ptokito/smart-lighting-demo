@@ -12,7 +12,7 @@ resource "newrelic_synthetics_monitor" "portal_ping" {
   type             = "SIMPLE"
   uri              = "${var.portal_url}/healthz"
   period           = "EVERY_5_MINUTES"
-  locations_public = ["AWS_US_EAST_1", "AWS_US_WEST_2"]
+  locations_public = ["US_EAST_1", "US_WEST_2"]
 
   treat_redirect_as_failure = true
   bypass_head_request       = true

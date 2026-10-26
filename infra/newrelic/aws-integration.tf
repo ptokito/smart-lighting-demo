@@ -49,6 +49,7 @@ resource "newrelic_cloud_aws_integrations" "this" {
   ec2 {
     aws_regions              = [var.aws_region]
     metrics_polling_interval = 300
+    fetch_ip_addresses       = true
   }
 
   # EBS: disk throughput and queue length for both root volumes.
@@ -60,11 +61,13 @@ resource "newrelic_cloud_aws_integrations" "this" {
   # S3: size and object count of the log archive bucket.
   s3 {
     metrics_polling_interval = 3600
+    fetch_tags               = true
   }
 
   # Lambda: invocations, errors and duration of the hourly log export.
   lambda {
     aws_regions              = [var.aws_region]
     metrics_polling_interval = 300
+    fetch_tags               = true
   }
 }

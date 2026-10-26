@@ -335,6 +335,9 @@ resource "newrelic_notification_destination" "email" {
     key   = "email"
     value = var.alert_email
   }
+  lifecycle {
+    ignore_changes = [property]
+  }
 }
 
 resource "newrelic_notification_channel" "email" {
