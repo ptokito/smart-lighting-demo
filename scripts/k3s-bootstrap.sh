@@ -36,7 +36,9 @@ step "Install k3s (single-node Kubernetes)"
 if ! command -v k3s >/dev/null 2>&1; then
   # --disable traefik: no ingress controller needed.
   # --write-kubeconfig-mode 644: lets kubectl run without sudo for the ssm-user.
-  retry 3 bash -c 'curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--disable traefik --write-kubeconfig-mode 644" sh -'
+  # Pod and service networks moved off 10.42.0.0/16, which overlaps the VPC.
+  # Pod and service networks moved off 10.42.0.0/16, which overlaps the VPC.
+  retry 3 bash -c 'curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--disable traefik --write-kubeconfig-mode 644 --cluster-cidr 10.52.0.0/16 --service-cidr 10.53.0.0/16" sh -'
 fi
 # Wait until the node reports Ready.
 for i in $(seq 1 30); do
