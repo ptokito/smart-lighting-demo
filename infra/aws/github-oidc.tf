@@ -38,7 +38,7 @@ resource "aws_iam_role" "github_deploy" {
         StringEquals = {
           "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
           # Only workflows running on the main branch of this repository.
-          "token.actions.githubusercontent.com:sub" = "repo:${var.github_repository}:ref:refs/heads/main"
+          "token.actions.githubusercontent.com:sub" = ["repo:${var.github_repository}:ref:refs/heads/main", "repo:ptokito@62076924/smart-lighting-demo@1434525761:ref:refs/heads/main"]
         }
       }
     }]
