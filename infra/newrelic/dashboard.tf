@@ -100,7 +100,7 @@ resource "newrelic_one_dashboard" "lighting" {
       width  = 4
       height = 3
       nrql_query {
-        query = "FROM Metric SELECT clamp_max(filter(sum(newrelic.sli.good), WHERE sli.guid = '${local.slo_avail}') / filter(sum(newrelic.sli.valid), WHERE sli.guid = '${local.slo_avail}') * 100, 100) AS 'API availability %', clamp_max(filter(sum(newrelic.sli.good), WHERE sli.guid = '${local.slo_lat}') / filter(sum(newrelic.sli.valid), WHERE sli.guid = '${local.slo_lat}') * 100, 100) AS 'API under 500 ms %' SINCE 7 days ago"
+        query = "FROM Metric SELECT clamp_max(100 - filter(sum(newrelic.sli.bad), WHERE sli.guid = '${local.slo_avail}') / filter(sum(newrelic.sli.valid), WHERE sli.guid = '${local.slo_avail}') * 100, 100) AS 'API availability %', clamp_max(filter(sum(newrelic.sli.good), WHERE sli.guid = '${local.slo_lat}') / filter(sum(newrelic.sli.valid), WHERE sli.guid = '${local.slo_lat}') * 100, 100) AS 'API under 500 ms %' SINCE 7 days ago"
       }
     }
 

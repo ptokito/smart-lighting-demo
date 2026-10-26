@@ -133,7 +133,7 @@ resource "newrelic_nrql_alert_condition" "response_time" {
   aggregation_delay            = local.delay
 
   nrql {
-    query = "SELECT percentile(duration, 95) FROM Transaction WHERE appName LIKE 'lighting-%' AND transactionType = 'Web' AND name NOT LIKE '%command%' FACET appName"
+    query = "SELECT percentile(duration, 95) FROM Transaction WHERE appName LIKE 'lighting-%' AND transactionType = 'Web' AND name NOT LIKE '%command%' AND request.uri NOT LIKE '%/commands%' FACET appName"
   }
   critical {
     operator              = "above"
