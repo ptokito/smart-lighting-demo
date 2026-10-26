@@ -8,6 +8,14 @@
 # log (/var/log/smart-lighting-bootstrap.log) reads like a checklist and you
 # can see exactly where a failure happened. We use this instead of `set -x`,
 # which would print every command, including ones that handle secrets.
+# Scripts started by cloud-init or Run Command have no HOME set, and git,
+# helm and docker all expect one, so default it to /root.
+export HOME="${HOME:-/root}"
+
+# Scripts started by cloud-init or Run Command have no HOME set, and git,
+# helm and docker all expect one, so default it to /root.
+export HOME="${HOME:-/root}"
+
 STEP_NO=0
 step() {
   STEP_NO=$((STEP_NO + 1))
@@ -44,7 +52,7 @@ retry() {
 # deploy (an exact commit SHA).
 checkout_ref() {
   local ref=$1
-  git config --global --add safe.directory /opt/smart-lighting
+  git config --system --add safe.directory /opt/smart-lighting
   cd /opt/smart-lighting || return 1
   retry 3 git fetch --quiet origin
   git checkout --quiet --force --detach "origin/${ref}" 2>/dev/null \
