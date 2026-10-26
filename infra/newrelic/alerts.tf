@@ -333,8 +333,10 @@ resource "newrelic_notification_destination" "email" {
   type = "EMAIL"
   property {
     key   = "email"
-    value = var.alert_email
+    value = lower(var.alert_email) # New Relic stores addresses in lower case
   }
+  # New Relic adds its own bookkeeping properties after creation (for example
+  # link_sent_email); ignore them so every plan does not try to remove them.
   lifecycle {
     ignore_changes = [property]
   }

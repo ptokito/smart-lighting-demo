@@ -273,6 +273,20 @@ resource "newrelic_one_dashboard" "lighting" {
         query = "SELECT average(db.keyspaceHitsPerSecond) / (average(db.keyspaceHitsPerSecond) + average(db.keyspaceMissesPerSecond)) * 100 AS 'Hit rate %' FROM RedisSample SINCE 3 hours ago TIMESERIES"
       }
     }
+
+    # Which exact SQL statements are slow. The agents record each database
+    # call as a span with the statement text (obfuscated: literal values are
+    # replaced with ?), so this table names the query behind a slowdown.
+    widget_table {
+      title  = "Slowest SQL statements (last hour, all services)"
+      row    = 10
+      column = 1
+      width  = 12
+      height = 4
+      nrql_query {
+        query = "FROM Span SELECT average(duration.ms) AS 'Avg ms', max(duration.ms) AS 'Max ms', count(*) AS 'Calls', latest(if(appName IS NOT NULL, appName, service.name)) AS 'Service' WHERE db.statement IS NOT NULL FACET db.statement SINCE 1 hour ago LIMIT 10"
+      }
+    }
   }
 
   # ---------------------------------------------------------------------------

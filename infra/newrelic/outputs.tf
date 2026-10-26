@@ -10,3 +10,8 @@ output "alert_policy_id" {
 output "light_response_sli_guid" {
   value = newrelic_service_level.light_response.sli_guid
 }
+
+output "program_workload_url" {
+  description = "Open this for the leadership view of the whole program."
+  value       = newrelic_workload.program.permalink
+}
