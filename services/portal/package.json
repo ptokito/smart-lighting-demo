@@ -10,6 +10,7 @@
   "dependencies": {
     "axios": "^1.7.0",
     "express": "^4.21.0",
-    "newrelic": "latest"
+    "newrelic": "latest",
+    "pino": "^9.5.0"
   }
 }

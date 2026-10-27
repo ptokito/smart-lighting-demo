@@ -32,12 +32,29 @@ const newrelic = require('newrelic');
 const express = require('express');
 const axios = require('axios');
 const path = require('path');
+// pino is one of the loggers the Node agent instruments: every line below gets
+// trace.id, span.id and entity.guid added and is forwarded to New Relic, so the
+// portal's logs sit on the same trace as lighting-api's and the gateway's.
+const pino = require('pino');
+const log = pino({ level: 'info' });
 
 const PORT = 3000;
 const API_URL = process.env.LIGHTING_API_URL || 'http://lighting-api:8080';
 
 const app = express();
 app.use(express.json());
+
+// One log line per request, written when the response finishes.
+app.use((req, res, next) => {
+  const started = Date.now();
+  res.on('finish', () => {
+    const line = { method: req.method, path: req.path, status: res.statusCode, ms: Date.now() - started };
+    if (res.statusCode >= 500) log.error(line, 'request failed');
+    else if (res.statusCode >= 400) log.warn(line, 'request rejected');
+    else log.info(line, 'request');
+  });
+  next();
+});
 app.use('/static', express.static(path.join(__dirname, 'public')));
 
 // One axios client for all calls to lighting-api. The agent instruments it,
@@ -110,6 +127,7 @@ async function forward(res, call) {
     res.status(r.status).json(r.data);
   } catch (err) {
     const status = err.response ? err.response.status : 502;
+    log.warn({ status, message: err.message }, 'lighting-api call failed');
     res.status(status).json(err.response ? err.response.data : { detail: 'lighting-api unreachable' });
   }
 }
@@ -128,4 +146,4 @@ app.post('/api/reports', (req, res) => {
   forward(res, () => api.post('/api/reports', req.body));
 });
 
-app.listen(PORT, () => console.log(`lighting-portal listening on ${PORT}, api ${API_URL}`));
+app.listen(PORT, () => log.info({ port: PORT, api: API_URL }, 'lighting-portal listening'));
