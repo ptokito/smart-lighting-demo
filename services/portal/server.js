@@ -37,6 +37,9 @@ const path = require('path');
 // portal's logs sit on the same trace as lighting-api's and the gateway's.
 const pino = require('pino');
 const log = pino({ level: 'info' });
+// The agent only adds trace context to logs written inside a transaction, and
+// res 'finish' fires after it has closed, so capture the IDs on the way in.
+const newrelic = require('newrelic');
 
 const PORT = 3000;
 const API_URL = process.env.LIGHTING_API_URL || 'http://lighting-api:8080';
@@ -47,8 +50,9 @@ app.use(express.json());
 // One log line per request, written when the response finishes.
 app.use((req, res, next) => {
   const started = Date.now();
+  const trace = newrelic.getTraceMetadata();
   res.on('finish', () => {
-    const line = { method: req.method, path: req.path, status: res.statusCode, ms: Date.now() - started };
+    const line = { method: req.method, path: req.path, status: res.statusCode, ms: Date.now() - started, 'trace.id': trace.traceId, 'span.id': trace.spanId };
     if (res.statusCode >= 500) log.error(line, 'request failed');
     else if (res.statusCode >= 400) log.warn(line, 'request rejected');
     else log.info(line, 'request');
