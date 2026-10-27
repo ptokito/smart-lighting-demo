@@ -39,7 +39,6 @@ const pino = require('pino');
 const log = pino({ level: 'info' });
 // The agent only adds trace context to logs written inside a transaction, and
 // res 'finish' fires after it has closed, so capture the IDs on the way in.
-const newrelic = require('newrelic');
 
 const PORT = 3000;
 const API_URL = process.env.LIGHTING_API_URL || 'http://lighting-api:8080';
